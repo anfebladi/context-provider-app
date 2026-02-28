@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Context Verifier</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        min-width: 280px;
+        padding: 12px;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .status {
+        margin-top: 10px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <label for="monitoringToggle">Enable Monitoring</label>
+      <input id="monitoringToggle" type="checkbox" />
+    </div>
+
+    <div id="status" class="status">Loading status...</div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

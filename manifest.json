@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Context Verifier",
+  "version": "0.1.0",
+  "description": "Boilerplate MV3 extension for monitoring YouTube Shorts.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["scripts/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Context Verifier",
+    "default_popup": "popup/popup.html"
+  }
+}
