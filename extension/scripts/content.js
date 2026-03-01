@@ -70,7 +70,8 @@ function ensureBlurToggleButton() {
     updateBlurButtonText();
   });
 
-  document.documentElement.appendChild(button);
+  const host = document.body ?? document.documentElement;
+  host.appendChild(button);
   updateBlurButtonText();
 }
 
@@ -100,7 +101,8 @@ function showStatusBox(url) {
   toast.style.opacity = "1";
   toast.style.transition = "opacity 250ms ease";
 
-  document.documentElement.appendChild(toast);
+  const host = document.body ?? document.documentElement;
+  host.appendChild(toast);
   logger.info("Status box displayed for URL:", url);
 
   if (notificationTimeoutId) {
@@ -156,12 +158,12 @@ function sendShortDetected(videoId, url) {
   );
 }
 
-function handlePotentialNavigation() {
+function handlePotentialNavigation(forceCheck = false) {
   ensureBlurToggleButton();
   applyBlurStateToVideo();
 
   const newUrl = location.href;
-  if (newUrl === currentUrl) {
+  if (!forceCheck && newUrl === currentUrl) {
     return;
   }
 
@@ -217,20 +219,28 @@ function startObserver() {
     childList: true
   });
 
+  logger.info("MutationObserver started.");
+}
+
+function registerNavigationListeners() {
   window.addEventListener("popstate", handlePotentialNavigation);
   window.addEventListener("hashchange", handlePotentialNavigation);
+  window.addEventListener("yt-navigate-finish", () => handlePotentialNavigation(true));
+}
 
-  logger.info("MutationObserver started.");
+function initNavigationDetection() {
+  startObserver();
+  registerNavigationListeners();
 
   currentUrl = "";
-  handlePotentialNavigation();
+  handlePotentialNavigation(true);
 }
 
 function syncMonitoringState() {
   chrome.storage.sync.get({ monitoringEnabled: true }, (result) => {
     monitoringEnabled = Boolean(result.monitoringEnabled);
     logger.info("Monitoring state synced:", monitoringEnabled ? "ENABLED" : "DISABLED");
-    handlePotentialNavigation();
+    handlePotentialNavigation(true);
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -240,6 +250,7 @@ function syncMonitoringState() {
 
     monitoringEnabled = Boolean(changes.monitoringEnabled.newValue);
     logger.info("Monitoring state changed:", monitoringEnabled ? "ENABLED" : "DISABLED");
+    handlePotentialNavigation(true);
   });
 }
 
@@ -256,4 +267,4 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 syncMonitoringState();
-startObserver();
+initNavigationDetection();

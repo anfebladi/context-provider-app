@@ -24,13 +24,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const fullUrl = message.fullUrl;
     logger.info("Message received from content script:", { fullUrl, tabId: sender.tab?.id });
 
-    const targetTabId = sender.tab?.id;
+    const senderTabId = sender.tab?.id;
     if (!fullUrl || typeof fullUrl !== "string") {
       logger.warn("SHORT_DETECTED missing fullUrl.");
       sendResponse({ ok: false, error: "Missing fullUrl" });
       return;
     }
 
+    logger.info("Starting fetch to backend:", { endpoint: API_CONFIG.verifyVideoUrl, fullUrl });
     fetch(API_CONFIG.verifyVideoUrl, {
       method: "POST",
       headers: {
@@ -46,9 +47,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         logger.warn("verify-video request failed (expected before backend is up):", error);
         sendResponse({ ok: false, error: String(error) });
       })
-      .finally(() => {
+      .finally(async () => {
+        let targetTabId = senderTabId;
+
         if (typeof targetTabId !== "number") {
-          logger.warn("No valid sender tab id. Unable to send DISPLAY_STATUS.");
+          const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          targetTabId = activeTab?.id;
+        }
+
+        if (typeof targetTabId !== "number") {
+          logger.warn("No valid tab id. Unable to send DISPLAY_STATUS.");
           return;
         }
 
