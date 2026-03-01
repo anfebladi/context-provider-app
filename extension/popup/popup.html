@@ -1,42 +1,132 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Context Verifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
-      body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-        min-width: 280px;
-        padding: 12px;
+      * {
+        box-sizing: border-box;
       }
 
-      .row {
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-width: 300px;
+        min-height: 150px;
+        font-family: "Outfit", sans-serif;
+        background: linear-gradient(165deg, #f0f7f2 0%, #e3f2e5 100%);
+      }
+
+      .panel {
+        width: 320px;
+        min-width: 280px;
+        max-width: 420px;
+        min-height: 140px;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(15, 157, 88, 0.12), 0 2px 10px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(15, 157, 88, 0.2);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .panel__header {
+        font-weight: 600;
+        font-size: 17px;
+        color: #fff;
+        padding: 14px 18px;
+        background: linear-gradient(135deg, #0f9d58 0%, #1b5e20 100%);
+        letter-spacing: 0.02em;
+      }
+
+      .panel__content {
+        padding: 16px 18px;
+        background: #fff;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .panel__row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 10px;
       }
 
-      .status {
-        margin-top: 10px;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        font-size: 12px;
-        white-space: pre-wrap;
+      .panel__label {
+        font-size: 14px;
+        color: #2e7d32;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      .panel__toggle {
+        width: 44px;
+        height: 24px;
+        accent-color: #0f9d58;
+        cursor: pointer;
+      }
+
+      .panel__status {
+        font-size: 13px;
+        color: #455a64;
+        min-height: 1.4em;
+        line-height: 1.4;
+      }
+
+      .panel__status .cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: #0f9d58;
+        margin-left: 2px;
+        animation: blink 0.8s step-end infinite;
+        vertical-align: text-bottom;
+      }
+
+      @keyframes blink {
+        50% { opacity: 0; }
+      }
+
+      .panel__resize {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 20px;
+        height: 20px;
+        cursor: nwse-resize;
+        background: linear-gradient(135deg, transparent 50%, rgba(15, 157, 88, 0.25) 50%);
+        border-radius: 0 0 16px 0;
+      }
+
+      .panel__resize:hover {
+        background: linear-gradient(135deg, transparent 50%, rgba(15, 157, 88, 0.4) 50%);
       }
     </style>
   </head>
   <body>
-    <div class="row">
-      <label for="monitoringToggle">Enable Monitoring</label>
-      <input id="monitoringToggle" type="checkbox" />
-    </div>
-
-    <div id="status" class="status">Loading status...</div>
-
+    <main class="panel" id="aiPanel" role="main">
+      <header class="panel__header">Context Verifier</header>
+      <section class="panel__content">
+        <div class="panel__row">
+          <label class="panel__label" for="monitoringToggle">Monitor Shorts</label>
+          <input type="checkbox" id="monitoringToggle" class="panel__toggle" aria-label="Toggle monitoring" />
+        </div>
+        <div class="panel__status" id="statusWrap">
+          <span id="status"></span>
+          <span class="cursor" id="statusCursor" aria-hidden="true"></span>
+        </div>
+      </section>
+      <div class="panel__resize" id="resizeHandle" title="Drag to resize" aria-hidden="true"></div>
+    </main>
     <script src="popup.js"></script>
   </body>
 </html>
