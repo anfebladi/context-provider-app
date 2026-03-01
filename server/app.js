@@ -137,6 +137,32 @@ function extractJsonObject(rawText) {
   return JSON.parse(jsonString);
 }
 
+function fallbackExtractFromText(rawText) {
+  const text = String(rawText || "").trim();
+  const normalized = text.toLowerCase();
+
+  let status = "no";
+  if (/(^|\b)(yes|safe|credible|real)(\b|$)/i.test(normalized)) {
+    status = "yes";
+  }
+
+  let detector = "uncertain";
+  if (/(ai|synthetic|generated|deepfake)/i.test(normalized)) {
+    detector = "ai-generated";
+  } else if (/(real|human|authentic)/i.test(normalized)) {
+    detector = "likely-real";
+  }
+
+  const compact = text.replace(/\s+/g, " ").trim();
+  const context = compact || "Model returned an empty response.";
+
+  return {
+    status,
+    detector,
+    context
+  };
+}
+
 function normalizeDetector(rawValue) {
   const normalized = String(rawValue || "").trim().toLowerCase();
   if (normalized === "ai-generated" || normalized === "likely-real" || normalized === "uncertain") {
@@ -156,7 +182,12 @@ function normalizeDetector(rawValue) {
 
 async function analyzeVideoWithGemini(videoUrl, apiKey, thumbnailBase64) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  });
   const prompt = [
     "Analyze this YouTube thumbnail for two tasks and return only JSON.",
     "Task 1 (ai detector): determine if the thumbnail appears ai-generated.",
@@ -183,7 +214,12 @@ async function analyzeVideoWithGemini(videoUrl, apiKey, thumbnailBase64) {
   ]);
 
   const modelReply = result?.response?.text?.() ?? "";
-  const parsed = extractJsonObject(modelReply);
+  let parsed;
+  try {
+    parsed = extractJsonObject(modelReply);
+  } catch {
+    parsed = fallbackExtractFromText(modelReply);
+  }
 
   return {
     status: normalizeStatus(parsed.status),
@@ -212,8 +248,26 @@ app.post("/verify-video", async (req, res) => {
     const analysis = await analyzeVideoWithGemini(url, activeApiKey, thumbnailBase64);
     res.json(analysis);
   } catch (error) {
-    console.error("verify-video error:", error.message);
-    res.status(500).json({ status: "no", reason: "No context found" });
+    const errorMessage = String(error?.message || "No context found");
+    console.error("verify-video error:", errorMessage);
+
+    const isQuotaError = /429|quota exceeded|too many requests|rate limit/i.test(errorMessage);
+    if (isQuotaError) {
+      res.status(429).json({
+        status: "no",
+        detector: "uncertain",
+        context: "Verification temporarily unavailable due to Gemini quota limits.",
+        reason: "Gemini quota exceeded. Retry later or increase API quota."
+      });
+      return;
+    }
+
+    res.status(500).json({
+      status: "no",
+      detector: "uncertain",
+      context: "Verification failed. Please retry.",
+      reason: errorMessage
+    });
   }
 });
 
