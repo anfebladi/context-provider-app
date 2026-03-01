@@ -12,6 +12,67 @@ let monitoringEnabled = true;
 let navigationCheckQueued = false;
 let navigationCheckTimeoutId = null;
 let notificationTimeoutId = null;
+let isBlurred = false;
+
+function getCurrentVideoElement() {
+  return document.querySelector("video");
+}
+
+function applyBlurStateToVideo() {
+  const videoElement = getCurrentVideoElement();
+  if (!videoElement) {
+    logger.warn("No video element found for blur toggle.");
+    return;
+  }
+
+  videoElement.style.transition = "filter 0.3s ease";
+  videoElement.style.filter = isBlurred ? "blur(30px)" : "none";
+}
+
+function updateBlurButtonText() {
+  const button = document.getElementById("context-verifier-blur-toggle");
+  if (!button) {
+    return;
+  }
+
+  button.textContent = isBlurred ? "Unblur" : "Blur Video";
+}
+
+function ensureBlurToggleButton() {
+  let button = document.getElementById("context-verifier-blur-toggle");
+  if (button) {
+    updateBlurButtonText();
+    return;
+  }
+
+  button = document.createElement("button");
+  button.id = "context-verifier-blur-toggle";
+  button.type = "button";
+  button.textContent = "Blur Video";
+  button.style.position = "fixed";
+  button.style.bottom = "80px";
+  button.style.right = "20px";
+  button.style.padding = "10px 16px";
+  button.style.backgroundColor = "#0d6efd";
+  button.style.border = "none";
+  button.style.borderRadius = "999px";
+  button.style.color = "#ffffff";
+  button.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif";
+  button.style.fontSize = "14px";
+  button.style.fontWeight = "600";
+  button.style.cursor = "pointer";
+  button.style.boxShadow = "0 8px 18px rgba(0, 0, 0, 0.25)";
+  button.style.zIndex = "2147483647";
+
+  button.addEventListener("click", () => {
+    isBlurred = !isBlurred;
+    applyBlurStateToVideo();
+    updateBlurButtonText();
+  });
+
+  document.documentElement.appendChild(button);
+  updateBlurButtonText();
+}
 
 function showStatusBox(url) {
   const existingToast = document.getElementById("context-verifier-status");
@@ -96,6 +157,9 @@ function sendShortDetected(videoId, url) {
 }
 
 function handlePotentialNavigation() {
+  ensureBlurToggleButton();
+  applyBlurStateToVideo();
+
   const newUrl = location.href;
   if (newUrl === currentUrl) {
     return;
@@ -130,6 +194,8 @@ function handlePotentialNavigation() {
 }
 
 function startObserver() {
+  ensureBlurToggleButton();
+
   const observer = new MutationObserver(() => {
     if (navigationCheckQueued) {
       return;
