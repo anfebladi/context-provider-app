@@ -10,37 +10,37 @@ let currentUrl = location.href;
 let lastDetectedVideoId = null;
 let monitoringEnabled = true;
 let navigationCheckQueued = false;
+let navigationCheckTimeoutId = null;
 let notificationTimeoutId = null;
 
-function showNotification(message) {
-  const existingToast = document.getElementById("context-verifier-toast");
+function showStatusBox(url) {
+  const existingToast = document.getElementById("context-verifier-status");
   if (existingToast) {
     existingToast.remove();
   }
 
   const toast = document.createElement("div");
-  toast.id = "context-verifier-toast";
-  toast.textContent = message;
+  toast.id = "context-verifier-status";
+  toast.textContent = `URL sent correctly: ${url}`;
   toast.style.position = "fixed";
   toast.style.top = "16px";
   toast.style.right = "16px";
-  toast.style.maxWidth = "360px";
-  toast.style.padding = "12px 14px";
-  toast.style.backgroundColor = "#0F0F0F";
-  toast.style.border = "1px solid #FF0000";
-  toast.style.color = "#FFFFFF";
-  toast.style.borderRadius = "12px";
-  toast.style.boxShadow = "0 10px 15px rgba(0, 0, 0, 0.35)";
-  toast.style.fontFamily = "Arial, sans-serif";
+  toast.style.maxWidth = "420px";
+  toast.style.padding = "12px 16px";
+  toast.style.backgroundColor = "#d1ecf1";
+  toast.style.border = "1px solid #bee5eb";
+  toast.style.color = "#0c5460";
+  toast.style.borderRadius = "8px";
+  toast.style.boxShadow = "0 8px 18px rgba(0, 0, 0, 0.18)";
+  toast.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif";
   toast.style.fontSize = "14px";
   toast.style.lineHeight = "1.4";
-  toast.style.zIndex = "2147483647";
+  toast.style.zIndex = "9999999";
   toast.style.opacity = "1";
-  toast.style.transition = "opacity 300ms ease";
-  toast.style.setProperty("background-color", "#FF0000", "important");
+  toast.style.transition = "opacity 250ms ease";
 
   document.documentElement.appendChild(toast);
-  logger.info("Toast displayed:", message);
+  logger.info("Status box displayed for URL:", url);
 
   if (notificationTimeoutId) {
     clearTimeout(notificationTimeoutId);
@@ -53,7 +53,7 @@ function showNotification(message) {
       if (toast.parentElement) {
         toast.remove();
       }
-    }, 300);
+    }, 250);
   }, 3000);
 }
 
@@ -77,12 +77,12 @@ function extractVideoIdFromUrl(urlString) {
 }
 
 function sendShortDetected(videoId, url) {
-  logger.info("Sending message to background:", { videoId, url });
+  logger.info("Sending message to background:", { fullUrl: url, videoId });
 
   chrome.runtime.sendMessage(
     {
       type: "SHORT_DETECTED",
-      payload: { videoId, url }
+      fullUrl: url
     },
     (response) => {
       if (chrome.runtime.lastError) {
@@ -136,10 +136,14 @@ function startObserver() {
     }
 
     navigationCheckQueued = true;
-    requestAnimationFrame(() => {
+    if (navigationCheckTimeoutId) {
+      clearTimeout(navigationCheckTimeoutId);
+    }
+
+    navigationCheckTimeoutId = setTimeout(() => {
       navigationCheckQueued = false;
       handlePotentialNavigation();
-    });
+    }, 300);
   });
 
   observer.observe(document.documentElement, {
@@ -151,6 +155,8 @@ function startObserver() {
   window.addEventListener("hashchange", handlePotentialNavigation);
 
   logger.info("MutationObserver started.");
+
+  currentUrl = "";
   handlePotentialNavigation();
 }
 
@@ -176,32 +182,12 @@ chrome.runtime.onMessage.addListener((message) => {
     return;
   }
 
-  const messageType = message.type;
-  const eventType = message.payload?.event;
-  const isDisplayMessage = messageType === "DISPLAY_NOTIFICATION";
-  const isNewVideoEvent = messageType === "NEW_VIDEO_DATA" || eventType === "NEW_VIDEO_DATA";
-
-  if (!isDisplayMessage && !isNewVideoEvent) {
+  if (message.type !== "DISPLAY_STATUS") {
     return;
   }
 
-  const incomingVideoId = message.payload?.videoId ?? message.videoId ?? "unknown";
-  const incomingPrefix = message.payload?.prefix;
-  const incomingText = message.payload?.message ?? message.message;
-  const notificationText = incomingText ?? `${incomingPrefix ?? "New YouTube Short Detected: "}${incomingVideoId}`;
-
-  logger.info("Notification command received:", {
-    type: message.type,
-    videoId: incomingVideoId,
-    text: notificationText
-  });
-
-  console.log("UI: Attempting to render window now...");
-  showNotification(notificationText);
+  showStatusBox(message.url ?? location.href);
 });
 
 syncMonitoringState();
 startObserver();
-
-console.log("Emergency Test Triggered");
-showNotification("System Startup Check");

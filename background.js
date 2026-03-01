@@ -6,6 +6,10 @@ const logger = {
   error: (...args) => console.error(LOG_PREFIX, ...args)
 };
 
+const API_CONFIG = {
+  verifyVideoUrl: "http://localhost:5000/verify-video"
+};
+
 chrome.runtime.onInstalled.addListener(async () => {
   await chrome.storage.sync.set({ monitoringEnabled: true });
   logger.info("Installed. Monitoring default set to ENABLED.");
@@ -17,44 +21,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "SHORT_DETECTED") {
-    const { videoId, url } = message.payload ?? {};
-    logger.info("Message received from content script:", { videoId, url, tabId: sender.tab?.id });
+    const fullUrl = message.fullUrl;
+    logger.info("Message received from content script:", { fullUrl, tabId: sender.tab?.id });
 
     const targetTabId = sender.tab?.id;
-    if (typeof targetTabId === "number") {
-      chrome.tabs.sendMessage(
-        targetTabId,
-        {
-          type: "DISPLAY_NOTIFICATION",
-          payload: {
-            event: "NEW_VIDEO_DATA",
-            videoId,
-            prefix: "New YouTube Short Detected: "
-          }
-        },
-        () => {
-          if (chrome.runtime.lastError) {
-            logger.warn("Notification dispatch warning:", chrome.runtime.lastError.message);
-            return;
-          }
-
-          logger.info("DISPLAY_NOTIFICATION sent to tab:", { tabId: targetTabId, videoId });
-        }
-      );
-    } else {
-      logger.warn("No valid sender tab id. Unable to dispatch notification.");
+    if (!fullUrl || typeof fullUrl !== "string") {
+      logger.warn("SHORT_DETECTED missing fullUrl.");
+      sendResponse({ ok: false, error: "Missing fullUrl" });
+      return;
     }
 
-    processShortsData(videoId)
-      .then((result) => {
-        logger.info("processShortsData completed:", result);
-        sendResponse({ ok: true, result });
+    fetch(API_CONFIG.verifyVideoUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ url: fullUrl })
+    })
+      .then((response) => {
+        logger.info("verify-video response:", response.status);
+        sendResponse({ ok: true, status: response.status });
       })
       .catch((error) => {
-        logger.error("processShortsData failed:", error);
+        logger.warn("verify-video request failed (expected before backend is up):", error);
         sendResponse({ ok: false, error: String(error) });
+      })
+      .finally(() => {
+        if (typeof targetTabId !== "number") {
+          logger.warn("No valid sender tab id. Unable to send DISPLAY_STATUS.");
+          return;
+        }
+
+        chrome.tabs.sendMessage(
+          targetTabId,
+          {
+            type: "DISPLAY_STATUS",
+            url: fullUrl
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              logger.warn("DISPLAY_STATUS dispatch warning:", chrome.runtime.lastError.message);
+              return;
+            }
+
+            logger.info("DISPLAY_STATUS sent to tab:", { tabId: targetTabId, fullUrl });
+          }
+        );
       });
-      
+
     return true;
   }
 
@@ -75,14 +89,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-async function processShortsData(videoId) {
-  logger.info("Processing short data (placeholder LLM call) for:", videoId);
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  return {
-    videoId,
-    simulatedApi: "external-llm-endpoint",
-    processedAt: new Date().toISOString()
-  };
-}
