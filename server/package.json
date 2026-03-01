@@ -1,0 +1,14 @@
+{
+  "name": "context-provider-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "express": "^4.21.2"
+  }
+}
