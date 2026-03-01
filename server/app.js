@@ -189,9 +189,8 @@ async function analyzeVideoWithGemini(videoUrl, apiKey, thumbnailBase64) {
     }
   });
   const prompt = [
-    "Analyze this YouTube thumbnail for two tasks and return only JSON.",
-    "Task 1 (ai detector): determine if the thumbnail appears ai-generated.",
-    "Task 2 (context giver): provide a short plain-language context summary about potential misinformation risk.",
+    "Analyze this YouTube video for a task and return only JSON.",
+    "Task (ai detector): determine if the video appears ai-generated, unrealistic, or fake.",
     "Use this exact schema:",
     "{",
     '  "status": "yes|no",',
@@ -200,10 +199,20 @@ async function analyzeVideoWithGemini(videoUrl, apiKey, thumbnailBase64) {
     "}",
     "status=yes means likely safe/credible.",
     "status=no means likely misleading/manipulative or unsafe.",
-    `Video URL: ${videoUrl}`
+    /*`Video URL: ${videoUrl}`*/
   ].join("\n");
 
   const result = await model.generateContent([
+    {
+      fileData: {
+        fileUri: videoUrl,
+        mimeType: 'video/*'
+      },
+      videoMetadata: {
+        startOffset: '0s',
+        endOffset: '1s',
+      }
+    },
     { text: prompt },
     {
       inlineData: {
@@ -214,12 +223,15 @@ async function analyzeVideoWithGemini(videoUrl, apiKey, thumbnailBase64) {
   ]);
 
   const modelReply = result?.response?.text?.() ?? "";
+  console.log(modelReply)
   let parsed;
   try {
     parsed = extractJsonObject(modelReply);
   } catch {
     parsed = fallbackExtractFromText(modelReply);
   }
+
+  console.log(String(parsed.context || "").trim() || "No additional context available.")
 
   return {
     status: normalizeStatus(parsed.status),
@@ -249,6 +261,7 @@ app.post("/verify-video", async (req, res) => {
     res.json(analysis);
   } catch (error) {
     const errorMessage = String(error?.message || "No context found");
+    
     console.error("verify-video error:", errorMessage);
 
     const isQuotaError = /429|quota exceeded|too many requests|rate limit/i.test(errorMessage);
